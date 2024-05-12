@@ -1,0 +1,40 @@
+arch: ai85net5
+dataset: TOF
+
+# Define layer parameters in order of the layer sequence
+layers:
+  # +++++++++++++++++++++ layer 0: input 28x28x3: ai8x.FusedConv2dReLU(3, 64, 3, padding=1)
+  - pad: 1
+    activate: ReLU
+    out_offset: 0x4000
+    processors: 0x0000000000000001   # input channels: 3, start from first processor
+    data_format: CHW
+    op: conv2d
+    kernel_size: 3x3
+  
+  # +++++++++++++++++++++ layer 1: ai8x.FusedMaxPoolConv2dReLU(64, 64, 3, pool_size=2, pool_stride=2, padding=0)
+  - max_pool: 2
+    pool_stride: 2
+    pad: 0
+    activate: ReLU
+    out_offset: 0
+    processors: 0xffffffffffffffff  # input channels: 64, adjusted for pool1 layer specification
+    op: conv2d
+    kernel_size: 3x3
+
+  # +++++++++++++++++++++ layer 2: ai8x.Linear(flattened dimension, 8, bias=True, wide=True)
+  - op: mlp
+    flatten: true
+    out_offset: 0x4000
+    # activate: ReLU
+    output_width: 8  # model is trained with wide = True, we can get 32 bit output
+    processors: 0xffffffffffffffff # Adjusted based on fc1 layer specification
+    # Note: 'flattened dimension' should be calculated based on the output size of layer 1
+  
+  # +++++++++++++++++++++ layer 3: ai8x.Linear(8, 10, bias=True, wide=True)
+  - op: mlp
+    flatten: false # Not flattening here as it's already a flat input
+    out_offset: 0x1000
+    # activate: softmax
+    output_width: 32
+    processors: 0x00000000000000ff # Adjusted based on fc2 layer specification
